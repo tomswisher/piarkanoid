@@ -64,7 +64,7 @@ function DrawLoadingScreen() {
 function RemoveLoadingScreen() {
     d3.selectAll('.loading').transition()
         .ease('exp-in')
-        .duration(2000)
+        .duration(1000)
         .attr('opacity', 0)
         .each('end', function() {
             d3.selectAll('.loading').remove();
@@ -188,7 +188,7 @@ var shakeoutduration   = 100;
 var shakeoutease       = 'circle-out';
 var shakeinduration    = 100;
 var shakeinease        = 'circle-in';
-var shakefactor        = 2;
+var shakefactor        = 1.5;
 var shaking = false;
 
 var shuffletogetherduration = 600;
