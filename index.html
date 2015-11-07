@@ -1,0 +1,1271 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Piarkanoid</title>
+<!--
+Piarkanoid
+http://admixcollective.org/piarkanoid.html
+tomswisherlabs@gmail.com
+https://www.linkedin.com/pub/thomas-swisher/9b/654/1ab
+-->
+<meta charset='utf-8'>
+<script src="//d3js.org/d3.v3.min.js" charset="utf-8"></script>
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>	
+<style>
+	body {
+		font-family: 'courier';
+	}
+	.svgstyle {
+        position:absolute;
+        top:5px;
+        left:5px;
+    }
+</style>
+</head>
+<body>
+<script>
+
+var apploaded = false;
+
+$( window ).load(
+	function() {
+    	console.log('window loaded');
+    	RemoveLoadingScreen();
+    }
+)
+
+function DrawLoadingScreen() {
+    var tempsvg = d3.select('body')
+        .append('svg')
+            .classed('loading', true)
+            .style('position', 'absolute')
+            .style('top', '0px')
+            .style('left', '0px')
+            .attr('width', 1150)
+            .attr('height', 650)
+            .attr('opacity', 0.9);
+    tempsvg.append('rect')
+        // .style('pointer-events', 'all')
+        // .attr('x', -500)
+        // .attr('y', -500)
+        .attr('x', 0)
+        .attr('y', 0)
+        .attr('width', 1150)
+        .attr('height', 650)
+        .attr('fill', 'white');
+    tempsvg.append('text')
+        // .style('pointer-events', 'none')
+        .attr('y', 200)
+        .attr('font-size', 50)
+        .text('Loading...');
+}
+
+function RemoveLoadingScreen() {
+    d3.selectAll('.loading').transition()
+        .ease('exp-in')
+        .duration(2000)
+        .attr('opacity', 0)
+        .each('end', function() {
+            d3.selectAll('.loading').remove();
+            apploaded = true;
+        });
+}
+
+// Piano notes based on set from University of Iowa Electronic Music Studios
+// http://theremin.music.uiowa.edu/MISpiano.html
+
+var numberoctaves = 8;
+var gameenabled = true;
+var gamerunning = false;
+var tickspersec = 60;
+
+var whitekeys = {};
+whitekeys.Width = 20;
+whitekeys.Height = (5)*whitekeys.Width;
+var blackkeys = {};
+blackkeys.Width = (1/2)*whitekeys.Width;
+blackkeys.Height = (2/3)*whitekeys.Height
+
+var rotateoffsety = (1/4)*numberoctaves*(whitekeys.Height-2*whitekeys.Width);
+var fontsize = (1/3)*whitekeys.Width;
+
+var appmargin = {};
+appmargin.Left = 2*whitekeys.Width;
+appmargin.Right = 2*whitekeys.Width;
+appmargin.Top = 7*whitekeys.Width;
+appmargin.Bottom = 2*whitekeys.Width;
+
+var notelist = [
+	'A0','Bb0','B0',
+	'C1','Db1','D1','Eb1','E1','F1','Gb1','G1','Ab1','A1','Bb1','B1',
+	'C2','Db2','D2','Eb2','E2','F2','Gb2','G2','Ab2','A2','Bb2','B2',
+	'C3','Db3','D3','Eb3','E3','F3','Gb3','G3','Ab3','A3','Bb3','B3',
+	'C4','Db4','D4','Eb4','E4','F4','Gb4','G4','Ab4','A4','Bb4','B4',
+	'C5','Db5','D5','Eb5','E5','F5','Gb5','G5','Ab5','A5','Bb5','B5',
+	'C6','Db6','D6','Eb6','E6','F6','Gb6','G6','Ab6','A6','Bb6','B6',
+	'C7','Db7','D7','Eb7','E7','F7','Gb7','G7','Ab7','A7','Bb7','B7',
+	'C8'
+];
+
+var keysarray = [];
+for (ii=0; ii<numberoctaves; ii++) {
+	keysarray = keysarray.concat(
+		[{Label:'A',  Left:7*ii+0  , NoteIndex:10, Width:whitekeys.Width, Height:whitekeys.Height, Color:'white'}],
+		[{Label:'A#', Left:7*ii+0.5, NoteIndex:11, Width:blackkeys.Width, Height:blackkeys.Height, Color:'black'}],
+		[{Label:'B',  Left:7*ii+1  , NoteIndex:12, Width:whitekeys.Width, Height:whitekeys.Height, Color:'white'}],
+	    [{Label:'C',  Left:7*ii+2  , NoteIndex:1,  Width:whitekeys.Width, Height:whitekeys.Height, Color:'white'}],
+	    [{Label:'C#', Left:7*ii+2.5, NoteIndex:2,  Width:blackkeys.Width, Height:blackkeys.Height, Color:'black'}],
+		[{Label:'D',  Left:7*ii+3  , NoteIndex:3,  Width:whitekeys.Width, Height:whitekeys.Height, Color:'white'}],
+		[{Label:'D#', Left:7*ii+3.5, NoteIndex:4,  Width:blackkeys.Width, Height:blackkeys.Height, Color:'black'}],
+		[{Label:'E',  Left:7*ii+4  , NoteIndex:5,  Width:whitekeys.Width, Height:whitekeys.Height, Color:'white'}],
+		[{Label:'F',  Left:7*ii+5  , NoteIndex:6,  Width:whitekeys.Width, Height:whitekeys.Height, Color:'white'}], 
+		[{Label:'F#', Left:7*ii+5.5, NoteIndex:7,  Width:blackkeys.Width, Height:blackkeys.Height, Color:'black'}],
+		[{Label:'G',  Left:7*ii+6  , NoteIndex:8,  Width:whitekeys.Width, Height:whitekeys.Height, Color:'white'}],
+		[{Label:'G#', Left:7*ii+6.5, NoteIndex:9,  Width:blackkeys.Width, Height:blackkeys.Height, Color:'black'}]
+	);
+}
+var numberextrakeys = 8;
+for (ii=0; ii<numberextrakeys; ii++) {
+	keysarray.pop();
+}
+
+var currentnotes = 'uiowa';
+var currentvolume = 1;
+for (index in keysarray) {
+	keysarray[index].Label = notelist[index];
+	keysarray[index].Note = new Audio();
+	// keysarray[index].Note.src = currentnotes+'_'+String(keysarray[index].NoteIndex)+'.mp3';
+	keysarray[index].Note.src = currentnotes+'_'+String(keysarray[index].Label)+'.mp3';
+	keysarray[index].Note.volume = currentvolume;
+}
+
+var gamemargin = {};
+gamemargin.Left = appmargin.Left;
+gamemargin.Width = whitekeys.Width*(keysarray[87].Left+1);
+gamemargin.Right = gamemargin.Left + gamemargin.Width;
+gamemargin.Top = appmargin.Top;
+gamemargin.Height =  2*(whitekeys.Height+rotateoffsety);
+gamemargin.Bottom = gamemargin.Top + gamemargin.Height;
+
+var svgmargin = {};
+svgmargin.Left = gamemargin.Left - appmargin.Left;
+svgmargin.Right = gamemargin.Right + appmargin.Right;
+svgmargin.Width = svgmargin.Right - svgmargin.Left;
+svgmargin.Top = gamemargin.Top - appmargin.Top;
+svgmargin.Bottom = gamemargin.Bottom + appmargin.Bottom;
+svgmargin.Height = svgmargin.Bottom - svgmargin.Top;
+
+var rotations = {};
+rotations.originx = gamemargin.Left + gamemargin.Width/2;
+rotations.originy = gamemargin.Top + gamemargin.Height/2;
+rotations.magnitude = 1/(1+(7/12)*keysarray.length);
+
+var labeloffset = {};
+var sharpoffset = {};
+labeloffset.X = 0.5*whitekeys.Width + (-1/4)*fontsize;
+sharpoffset.X = (-1)*fontsize;
+labeloffset.Y = (1)*whitekeys.Width + (-0.5)*fontsize;
+sharpoffset.Y = (-0.5)*whitekeys.Width + (0.25)*fontsize;
+
+globalthis = 0;
+
+var pressheight = (-1/5)*whitekeys.Width;
+var presswidth = 0;
+
+var hammerupduration   = 30;
+var hammerupease       = 'linear';
+var hammerdownduration = 400;
+var hammerdownease     = 'bounce';
+
+var scalefactor = 0.75;
+var scaleduration      = 0;
+var scaleease          = 'linear';
+var scalebackduration  = 500;
+var scalebackease      = 'elastic-in';
+
+var shakeoutduration   = 100;
+var shakeoutease       = 'circle-out';
+var shakeinduration    = 100;
+var shakeinease        = 'circle-in';
+var shakefactor        = 2;
+var shaking = false;
+
+var shuffletogetherduration = 600;
+var shuffletogetherease     = 'exp-in-out';
+var shuffletogethershake    = false;
+var shuffletogethershakex   = -25;
+var shuffletogethershakey   = 0;
+
+var shuffledownduration = 500;
+var shuffledownease     = 'exp-in';
+var shuffledownshake    = true;
+var shuffledownshakex   = 0;
+var shuffledownshakey   = -10;
+
+var fanoutduration = 600;
+var fanoutease     = 'exp-in';
+var fanoutshake    = true;
+var fanoutshakex   = -10;
+var fanoutshakey   = 0;
+
+var faninduration  = 600;
+var faninease      = 'exp-out';
+var faninshake     = false;
+var faninshakex    = 10;
+var faninshakey    = 0;
+
+var shuffleupduration = 500;
+var shuffleupease     = 'exp-in';
+var shuffleupshake    = true;
+var shuffleupshakex   = 0;
+var shuffleupshakey   = 10;
+
+var shuffleapartduration = 600;
+var shuffleapartease     = 'exp-in-out';
+var shuffleapartshake    = false;
+var shuffleapartshakex   = 0;
+var shuffleapartshakey   = 0;
+
+var keysdown = {};
+var wcode = 'U+0057';
+var acode = 'U+0041';
+var scode = 'U+0053';
+var dcode = 'U+0044';
+var gcode = 'U+0047';
+var hcode = 'U+0048';
+
+
+d3.select('body')
+	.on('keydown', function() {
+		keysdown[event.keyIdentifier] = 1;
+		if (apploaded===true && event.keyIdentifier === gcode) {
+			if (gamerunning === false) {
+				GameStart();
+			}
+			else {
+				GameStop();
+			}
+		}
+	})
+	.on('keyup', function() {
+		delete keysdown[event.keyIdentifier];
+	});
+
+var svg = d3.select('body').append('svg')
+	.attr('class', 'mainsvg')
+	.attr('width', svgmargin.Width)
+	.attr('height', svgmargin.Height)
+	.attr('class', 'svgstyle')
+	// .call( // <-A
+	//     d3.behavior.zoom() // <-B
+	//         .scaleExtent([1, 1]) // <-C
+	//         .on('zoom', Zoom) // <-D
+	// )
+	;
+
+
+
+//-Game Border
+if (gameenabled === true) {
+	svg.append('rect')
+		.attr('x', gamemargin.Left)
+		.attr('y', gamemargin.Top)
+		.attr('width', gamemargin.Width)
+		.attr('height', gamemargin.Height)
+		.attr('fill', 'white')
+		.attr('stroke', 'black')
+		.attr('stroke-width', 1);
+}
+
+// //-Rotation Origin
+// svg.append('rect')
+// 	.attr('x', rotations.originx)
+// 	.attr('y', rotations.originy)
+// 	.attr('width', 1)
+// 	.attr('height', 1)
+// 	.attr('fill', 'black');
+
+svg.selectAll('g')
+	.data(keysarray)
+	.enter()
+	.append('g');
+
+// svg.append('rect')
+// 	.attr('x', appmargin.Left - 1)
+// 	.attr('y', gamemargin.Top-whitekeys.Width)
+// 	.attr('width', 7*whitekeys.Width*numberoctaves + 2)
+// 	.attr('height', whitekeys.Width)
+	// .attr('fill', 'black');
+
+var keypressed = false;
+
+svg.selectAll('g')
+	.append('rect')
+	.attr('class', function(d) {
+		if (d.Color === 'black') {
+			return 'keys shuffleable blackkeys';
+		}
+		else {
+			return 'keys shuffleable whitekeys';
+		}
+	})
+	.attr('x', function(d) {
+		return gamemargin.Left + d.Left*whitekeys.Width;
+	})
+	.attr('y', gamemargin.Top)
+	.attr('width', function(d) { return d.Width; })
+	.attr('height', function(d) { return d.Height; })
+	.attr('fill', function(d) { return d.Color; })
+	.attr('stroke', 'black')
+	.on('mousedown', function(d, i) {
+		if (shuffling === false && outershuffling === false) {
+			keypressed = true;
+			d3.select(this).attr('fill', 'red');
+			HammerStrike(this);
+			d.Note.pause();
+			d.Note.currentTime = 0;
+			d.Note.play();
+			// d3.select(this)
+			// .transition()
+			// 	.duration(1000)
+			// 	.ease('circle-out')
+				// .attr('fill', d.Color);
+		}
+	})
+	.on('mouseover', function(d, i) {
+		if ('Shift' in keysdown && shuffling === false && outershuffling === false) {
+			keypressed = true;
+			d3.select(this).attr('fill', 'red');
+			HammerStrike(this);
+			d.Note.pause();
+			d.Note.currentTime = 0;
+			d.Note.play();
+			// d3.select(this)
+			// .transition()
+			// 	.duration(500)
+			// 	.ease('circle-out')
+				// .attr('fill', d.Color);
+		}
+	})
+	.on('mouseout', function(d, i) {
+		if (keypressed === true) {
+			keypressed = false;
+			HammerReturn(this, 0);
+			d3.select(this)
+			// .transition()
+			// 	.duration(100)
+			// 	.ease('circle-out')
+				.attr('fill', d.Color);
+		}
+	})
+	.on('mouseup', function(d, i) {
+		if (keypressed === true) {
+			keypressed = false;
+			HammerReturn(this, 0);
+			d3.select(this)
+			// .transition()
+			// 	.duration(100)
+			// 	.ease('circle-out')
+				.attr('fill', d.Color);
+		}
+	})
+	;
+
+//-Cover Bars (moving)
+svg.selectAll('g')
+	.append('rect')
+	.attr('class', 'coverbars shuffleable')
+	.attr('x', function(d) {
+		return gamemargin.Left + d.Left*whitekeys.Width;
+	})
+	.attr('y', gamemargin.Top)
+	.attr('width', function(d) { return d.Width; })
+	.attr('height', whitekeys.Width)
+	.attr('fill', 'black')
+	.attr('stroke', 'black');
+
+// //-Cover Bars (stationary)
+// svg.selectAll('g')
+// 	.append('rect')
+// 	.attr('class', 'coverbars')
+// 	.attr('x', function(d) {
+// 		return gamemargin.Left + d.Left*whitekeys.Width;
+// 	})
+// 	.attr('y', gamemargin.Top-whitekeys.Width)
+// 	.attr('width', function(d) {
+// 		if (d.Color === 'black') {
+// 			return whitekeys.Width/2;
+// 		}
+// 		else {
+// 			return whitekeys.Width;
+// 		}
+// 	})
+// 	.attr('height', whitekeys.Width)
+// 	.attr('fill', 'black')
+// 	.attr('stroke', 'black');
+
+// //-Strings
+// svg.selectAll('g')
+// 	.append('rect')
+// 	.attr('class', 'strings')
+// 	.attr('x', function(d) {
+// 		if (d.Color === 'black') {
+// 			return gamemargin.Left + d.Left*whitekeys.Width + (3/16)*whitekeys.Width;
+// 		}
+// 		else {
+// 			return gamemargin.Left + d.Left*whitekeys.Width + (7/16)*whitekeys.Width;
+// 		}
+// 	})
+// 	.attr('y', gamemargin.Top - 4*whitekeys.Width + (3/4)*whitekeys.Width)
+// 	.attr('width', function(d) { return whitekeys.Width/8; })
+// 	.attr('height', whitekeys.Width/4)
+// 	.attr('fill', 'grey');
+
+//-Hammers
+svg.selectAll('g')
+	.append('rect')
+	.attr('class', 'hammers')
+	.attr('x', function(d) {
+		if (d.Color === 'black') {
+			return gamemargin.Left + d.Left*whitekeys.Width + (1/2)*whitekeys.Width;
+		}
+		else {
+			return gamemargin.Left + d.Left*whitekeys.Width + (1/2)*whitekeys.Width;
+		}
+	})
+	.attr('y', gamemargin.Top - 2*whitekeys.Width)
+	.attr('width', (1/8)*whitekeys.Width)
+	.attr('height', whitekeys.Width)
+	.attr('fill', 'black');
+
+// //-Cover Bars (stationary)
+// svg.selectAll('g')
+// 	.append('rect')
+// 	.attr('class', 'coverbars')
+// 	.attr('x', function(d) {
+// 		return gamemargin.Left + d.Left*whitekeys.Width;
+// 	})
+// 	.attr('y', gamemargin.Top-4*whitekeys.Width)
+// 	.attr('width', function(d) {
+// 		if (d.Color === 'black') {
+// 			return whitekeys.Width/2;
+// 		}
+// 		else {
+// 			return whitekeys.Width;
+// 		}
+// 	})
+// 	.attr('height', whitekeys.Width)
+// 	.attr('fill', 'black')
+// 	.attr('stroke', 'black');
+
+// Labels
+svg.selectAll('mylabels')
+	.data(keysarray)
+	.enter()
+	.append('text')
+	.attr('class', 'shuffleable')
+	.attr('font-size', fontsize*1)
+	.attr('x', function(d) {
+		// console.log( String((d.Left+0.5)*whitekeys.Width) );
+		if (d.Color === 'black') {
+			return gamemargin.Left + d.Left*whitekeys.Width + labeloffset.X + sharpoffset.X;
+		}
+		else {
+			return gamemargin.Left + d.Left*whitekeys.Width + labeloffset.X;
+		}
+	})
+	.attr('y', function(d) {
+		if (d.Color === 'black') {
+			return gamemargin.Top + labeloffset.Y + sharpoffset.Y;
+		}
+		else {
+			return gamemargin.Top + labeloffset.Y;
+		}
+	})
+	.text(function(d) { return d.Label; })
+	.attr('fill', 'white');
+
+
+var buttonshufflepressed = false;
+var shuffled = false;
+var shuffling = false;
+var globaltween = 0;
+
+var buttonshuffle = svg.append('image')
+    .attr('xlink:href', 'iconCircle.png')
+    .attr('x', gamemargin.Left + gamemargin.Width/2 + (-4)*whitekeys.Width)
+    .attr('y', whitekeys.Width)
+    .attr('width', whitekeys.Width*2)
+    .attr('height', whitekeys.Width*2)
+    .on('mousedown', function() {
+    	d3.selectAll('.keys').attr('fill', function(d) { return d.Color; });
+        if (buttonshufflepressed===false && shuffling===false && outershuffled===false && outershuffling===false) {
+        	buttonshufflepressed = true;
+        	if (shuffled === false) {
+        		shuffling = true;
+        		shuffled = true;
+	            svg.selectAll('.shuffleable')
+	            	.transition()
+			        	.attr('x', function(d) {
+			        		labeloffsetx = 0;
+			        		if (this.nodeName === 'text') {
+			        			if (d.Color === 'black') {
+			        				labeloffsetx += (labeloffset.X + sharpoffset.X);
+			        			}
+				        		else {
+				        			labeloffsetx += labeloffset.X;
+				        		}
+			        		}
+			        		return gamemargin.Left + gamemargin.Width/2 - whitekeys.Width/2 + labeloffsetx;
+			        	})
+			        	.duration(shuffletogetherduration)
+			        	.ease(shuffletogetherease)
+			        	.call(endall, function() {
+			        		if (shuffletogethershake === true) {
+			        			ShakeViewBox(shuffletogethershakex, shuffletogethershakey);
+			        		}
+			        	})
+		        	.transition()
+			        	.attr('x', function(d) {
+			        		labeloffsetx = 0;
+			        		if (this.nodeName === 'text') {
+			        			if (d.Color === 'black') {
+			        				labeloffsetx += (labeloffset.X + sharpoffset.X);
+			        			}
+				        		else {
+				        			labeloffsetx += labeloffset.X;
+				        		}
+			        		}
+			        		return rotations.originx - whitekeys.Width/2 + labeloffsetx;
+			        	})
+			        	.attr('y', function(d) {
+			        		globalthis = this;
+			        		labeloffsety = 0;
+			        		if (this.nodeName === 'text') {
+			        			if (d.Color === 'black') {
+			        				labeloffsety += (labeloffset.Y + sharpoffset.Y);
+			        			}
+				        		else {
+				        			labeloffsety += labeloffset.Y;
+				        		}
+			        		}
+			        		return rotations.originy + rotateoffsety + labeloffsety;
+			        	})
+			        	.duration(shuffledownduration)
+			        	.ease(shuffledownease)
+			        	.call(endall, function() {
+			        		if (shuffledownshake === true) {
+			        			ShakeViewBox(shuffledownshakex, shuffledownshakey);
+			        		}
+			        	})
+		        	.transition()
+						.attrTween('transform', function(d) {
+							return angleTween(d, -1, 'clockwise');
+						})
+						.duration(fanoutduration)
+		    			.ease(fanoutease)
+		    			.call(endall, function() {
+		    				if (fanoutshake === true) {
+		    					ShakeViewBox(fanoutshakex, fanoutshakey);
+		    				}
+		    				shuffling = false;
+		    			});
+		    }
+		    else {
+		    	shuffling = true;
+		    	shuffled = false;
+		    	svg.selectAll('.shuffleable')
+		    		.transition()
+						.attrTween('transform', function(d) {
+							return angleTween(d, 1, 'clockwise');
+						})
+						.duration(faninduration)
+			        	.ease(faninease)
+			        	.call(endall, function() {
+			        		if (faninshake === true) {
+			        			ShakeViewBox(faninshakex, faninshakey);
+			        		}
+			        	})
+		        	.transition()
+			        	.attr('x', function(d) {
+			        		labeloffsetx = 0;
+			        		if (this.nodeName === 'text') {
+			        			if (d.Color === 'black') {
+			        				labeloffsetx += (labeloffset.X + sharpoffset.X);
+			        			}
+				        		else {
+				        			labeloffsetx += labeloffset.X;
+				        		}
+			        		}
+			        		return gamemargin.Left + gamemargin.Width/2 - whitekeys.Width/2 + labeloffsetx;
+			        	})
+			        	.attr('y', function(d) {
+			        		labeloffsety = 0;
+			        		if (this.nodeName === 'text') {
+			        			if (d.Color === 'black') {
+			        				labeloffsety += (labeloffset.Y + sharpoffset.Y);
+			        			}
+				        		else {
+				        			labeloffsety += labeloffset.Y;
+				        		}
+			        		}
+			        		return gamemargin.Top + labeloffsety;
+			        	})
+			        	.duration(shuffleupduration)
+			        	.ease(shuffleupease)
+			        	.call(endall, function() {
+			        		if (shuffleupshake === true) {
+			        			ShakeViewBox(shuffleupshakex, shuffleupshakey);
+			        		}
+			        	})
+			        .transition()
+			        	.attr('x', function(d) {
+			        		labeloffsetx = 0;
+			        		if (this.nodeName === 'text') {
+			        			if (d.Color === 'black') {
+			        				labeloffsetx += (labeloffset.X + sharpoffset.X);
+			        			}
+				        		else {
+				        			labeloffsetx += labeloffset.X;
+				        		}
+			        		}
+			        		return gamemargin.Left + d.Left*whitekeys.Width + labeloffsetx;
+			        	})
+			        	.attr('y', function(d) {
+			        		labeloffsety = 0;
+			        		if (this.nodeName === 'text') {
+			        			if (d.Color === 'black') {
+			        				labeloffsety += (labeloffset.Y + sharpoffset.Y);
+			        			}
+				        		else {
+				        			labeloffsety += labeloffset.Y;
+				        		}
+			        		}
+			        		return gamemargin.Top + labeloffsety;
+			        	})
+			        	.duration(shuffleapartduration)
+			        	.ease(shuffleapartease)
+			        	.call(endall, function() {
+			        		if (shuffleapartshake === true) {
+			        			ShakeViewBox(shuffleapartshakex, shuffleapartshakey);
+			        		}
+			        		shuffling = false;
+			        	});
+		    }
+            ElementAnimationScale(this, 40, scalefactor);
+        }
+    })
+    .on('mouseup', function() {
+    	d3.selectAll('.keys').attr('fill', function(d) { return d.Color; });
+        if (buttonshufflepressed === true) {
+            buttonshufflepressed = false;
+            d3.select(this).transition()
+                .attr('transform', 'translate(0)')
+                .duration(scalebackduration)
+                .ease(scalebackease);
+        }
+    })
+    .on('mouseout', function() {
+    	d3.selectAll('.keys').attr('fill', function(d) { return d.Color; });
+        if (buttonshufflepressed === true) {
+            buttonshufflepressed = false;
+            d3.select(this).transition()
+                .attr('transform', 'translate(0)')
+                .duration(scalebackduration)
+                .ease(scalebackease);
+        }
+    });
+
+var buttonswitchpressed = false;
+
+// var buttonswitchsrc = svg.append('image')
+//     .attr('xlink:href', 'iconDiamond.png')
+//     .attr('x', gamemargin.Left + gamemargin.Width/2 + (-1)*whitekeys.Width)
+//     .attr('y', whitekeys.Width)
+//     .attr('width', whitekeys.Width*2)
+//     .attr('height', whitekeys.Width*2)
+//     .on('mousedown', function(d, i) {
+//         if (buttonswitchpressed === false) {
+//             buttonswitchpressed = true;
+//             if (currentnotes === 'taro') {
+//             	currentnotes = 'dan';
+//             	currentvolume = 1.0;
+//             }
+//             else {
+//             	currentnotes = 'taro';
+//             	currentvolume = 0.5;
+//             }
+//             d3.selectAll('.keys')
+//         		.each(function(d) {
+//         			d.Note.src = currentnotes + '_' + String(d.NoteIndex) + '.mp3';
+//         			d.Note.volume = currentvolume;
+//         		});          
+//             ElementAnimationScale(this, 40, scalefactor);
+//         }
+//     })
+//     .on('mouseup', function() {
+//         if (buttonswitchpressed === true) {
+//             buttonswitchpressed = false;
+//             d3.select(this).transition()
+//                 .attr('transform', 'translate(0)')
+//                 .duration(scalebackduration)
+//                 .ease(scalebackease);
+//         }
+//     })
+//     .on('mouseout', function() {
+//         if (buttonswitchpressed === true) {
+//             buttonswitchpressed = false;
+//             d3.select(this).transition()
+//                 .attr('transform', 'translate(0)')
+//                 .duration(scalebackduration)
+//                 .ease(scalebackease);
+//         }
+//     });
+
+var buttonoutershufflepressed = false;
+var outershuffled = false;
+var outershuffling = false;
+
+var buttonoutershuffle = svg.append('image')
+    .attr('xlink:href', 'iconSquare.png')
+    .attr('x', gamemargin.Left + gamemargin.Width/2 + (2)*whitekeys.Width)
+    .attr('y', whitekeys.Width)
+    .attr('width', whitekeys.Width*2)
+    .attr('height', whitekeys.Width*2)
+    .on('mousedown', function() {
+    	d3.selectAll('.keys').attr('fill', function(d) { return d.Color; });
+        if (buttonoutershufflepressed===false && shuffled===false && shuffling===false && outershuffling===false) {
+        	buttonoutershufflepressed = true;
+        	if (outershuffled === false) {
+	            outershuffled = true;
+	            outershuffling = true;
+	            svg.selectAll('.shuffleable')
+	            	.transition()
+			        	.attr('x', function(d) {
+			        		labeloffsetx = 0;
+			        		if (this.nodeName === 'text') {
+			        			if (d.Color === 'black') {
+			        				labeloffsetx += (labeloffset.X + sharpoffset.X);
+			        			}
+				        		else {
+				        			labeloffsetx += labeloffset.X;
+				        		}
+			        		}
+			        		return gamemargin.Left + gamemargin.Width/2 - whitekeys.Width/2 + labeloffsetx;
+			        	})
+			        	.duration(shuffletogetherduration)
+			        	.ease(shuffletogetherease)
+			        	.call(endall, function() {
+			        		if (shuffletogethershake === true) {
+			        			ShakeViewBox(shuffletogethershakex, shuffletogethershakey);
+			        		}
+			        	})
+		        	.transition()
+						.attrTween('transform', function(d) {
+							return angleTween(d, -1, 'counterclockwise');
+						})
+						.duration(fanoutduration)
+		    			.ease(fanoutease)
+		    			.call(endall, function() {
+		    				if (fanoutshake === true) {
+		    					ShakeViewBox(fanoutshakex, fanoutshakey);
+		    				}
+		    				outershuffling = false;
+		    			});
+		    }
+		    else {
+		    	outershuffling = true;
+		    	outershuffled = false;
+		    	svg.selectAll('.shuffleable')
+		    		.transition()
+						.attrTween('transform', function(d) {
+							return angleTween(d, 1, 'counterclockwise');
+						})
+						.duration(faninduration)
+			        	.ease(faninease)
+			        	.call(endall, function() {
+			        		if (faninshake === true) {
+			        			ShakeViewBox(faninshakex, faninshakey);
+			        		}
+			        	})
+			        .transition()
+			        	.attr('x', function(d) {
+			        		labeloffsetx = 0;
+			        		if (this.nodeName === 'text') {
+			        			if (d.Color === 'black') {
+			        				labeloffsetx += (labeloffset.X + sharpoffset.X);
+			        			}
+				        		else {
+				        			labeloffsetx += labeloffset.X;
+				        		}
+			        		}
+			        		return gamemargin.Left + d.Left*whitekeys.Width + labeloffsetx;
+			        	})
+			        	.attr('y', function(d) {
+			        		labeloffsety = 0;
+			        		if (this.nodeName === 'text') {
+			        			if (d.Color === 'black') {
+			        				labeloffsety += (labeloffset.Y + sharpoffset.Y);
+			        			}
+				        		else {
+				        			labeloffsety += labeloffset.Y;
+				        		}
+			        		}
+			        		return gamemargin.Top + labeloffsety;
+			        	})
+			        	.duration(shuffleapartduration)
+			        	.ease(shuffleapartease)
+			        	.call(endall, function() {
+			        		if (shuffleapartshake === true) {
+			        			ShakeViewBox(shuffleapartshakex, shuffleapartshakey);
+			        		}
+			        		outershuffling = false;
+			        	});
+		    }
+            ElementAnimationScale(this, 40, scalefactor);
+        }
+    })
+    .on('mouseup', function() {
+    	d3.selectAll('.keys').attr('fill', function(d) { return d.Color; });
+        if (buttonoutershufflepressed === true) {
+            buttonoutershufflepressed = false;
+            d3.select(this).transition()
+                .attr('transform', 'translate(0)')
+                .duration(scalebackduration)
+                .ease(scalebackease);
+        }
+    })
+    .on('mouseout', function() {
+    	d3.selectAll('.keys').attr('fill', function(d) { return d.Color; });
+        if (buttonoutershufflepressed === true) {
+            buttonoutershufflepressed = false;
+            d3.select(this).transition()
+                .attr('transform', 'translate(0)')
+                .duration(scalebackduration)
+                .ease(scalebackease);
+        }
+    });
+
+
+function ElementAnimationScale(tempthis, thiswidth, tscale) {
+    thisx = parseFloat(tempthis.getAttribute('x'));
+    thisy = parseFloat(tempthis.getAttribute('y'));
+    return d3.select(tempthis).transition()
+        .attr('transform', function() {
+            step1 = 'translate(' + String(thisx+thiswidth/2) + ',' + String(thisy+thiswidth/2) + ')';
+            step2 = 'scale(' + String(tscale) + ')';
+            step3 = 'translate(' + String(-thisx-thiswidth/2) + ',' + String(-thisy-thiswidth/2) + ')';
+            return step1 + ' ' + step2 + ' ' + step3;})
+        .duration(scaleduration)
+        .ease(scaleease);
+}
+
+function angleTween(d, sign, chirality) {
+	if (chirality === 'clockwise') {
+		var angle = (-1)*360*rotations.magnitude*d.Left;
+	}
+	if (chirality === 'counterclockwise') {
+		var angle = (1)*360*rotations.magnitude*d.Left;
+	}
+	if (sign === -1) {
+		var interpolater = d3.interpolate(0, angle);
+	}
+	if (sign === 1) {
+		var interpolater = d3.interpolate(angle, 0);
+	}
+	return function(t) {
+		return 'rotate(' + interpolater(t) + ' ' + rotations.originx + ',' + rotations.originy + ')';
+	};
+}
+
+function HammerStrike(passedthis) {
+	d3.select(passedthis.parentNode).select('.hammers')
+		.transition()
+			.attr('transform', 'translate(0,'+String((-1)*whitekeys.Width)+')')
+			.duration(hammerupduration)
+			.ease(hammerupease)
+			.each('end', function() {
+				StringStrike(passedthis);
+			});
+}
+
+function HammerReturn(passedthis, passeddelay) {
+	d3.select(passedthis.parentNode).select('.hammers')
+		.transition()
+			.attr('transform', 'translate(0)')
+			.duration(hammerdownduration)
+			.ease(hammerdownease)
+			.delay(passeddelay);
+}
+
+function StringStrike(passedthis) {
+	d3.select(passedthis.parentNode).select('.strings')
+		.transition()
+			.attr('transform', 'translate(0,'+String((-1)*whitekeys.Width/2)+')')
+			.duration(200)
+			.ease('circle-out')
+		.transition()
+			.attr('transform', 'translate(0)')
+			.duration(200)
+			.ease('circle-in')
+		.transition()
+			.attr('transform', 'translate(0,'+String((1)*whitekeys.Width/2)+')')
+			.duration(200)
+			.ease('circle-out')
+		.transition()
+			.attr('transform', 'translate(0)')
+			.duration(200)
+			.ease('circle-in');
+}
+
+// Game Border
+if (gameenabled === true)
+{
+	var gametimer = '';
+	if (gamerunning === true) {
+		GameStart();
+	}
+	var ball = {};
+	ball.Color = 'red';
+	ball.Width  = 10;
+	ball.Height = 10;
+	ball.LeftInit = gamemargin.Left + gamemargin.Width/2 - ball.Width/2;
+	ball.TopInit = gamemargin.Top + gamemargin.Height/2 - ball.Height/2;
+	randomangle = 0.25*Math.PI + Math.random()*0.5*Math.PI;
+	ball.VXInit = 400*Math.cos(randomangle);
+	ball.VYInit = 400*Math.sin(randomangle);
+	// var ball.VXInit = 100;
+	// var ball.VYInit = 1000;
+	ball.VX = ball.VXInit;
+	ball.VY = ball.VYInit;
+	var paddle = {};
+	paddle.Color = 'black';
+	paddle.Width = 12*whitekeys.Width;
+	paddle.Height = 2*whitekeys.Width;
+	paddle.LeftInit = gamemargin.Left + gamemargin.Width/2 - paddle.Width/2;
+	paddle.TopInit = gamemargin.Bottom - paddle.Height;
+	paddle.Intersected = false;
+	paddle.VXInit = 0;
+	paddle.VX = paddle.VXInit;
+	paddle.VYInit = 0;
+	paddle.VY = paddle.VYInit;
+	// paddle.Moving = false;	
+
+	//-The Paddle
+	svg.append('rect')
+		.datum(paddle)
+		.attr('class', 'paddle')
+		.attr('x', paddle.LeftInit)
+		.attr('y', paddle.TopInit)
+		.attr('width', paddle.Width)
+		.attr('height', paddle.Height)
+		.attr('fill', paddle.Color);
+
+	//-The Ball
+	svg.append('rect')
+		.datum(ball)
+		.attr('class', 'ball')
+		.attr('x', ball.LeftInit)
+		.attr('y', ball.TopInit)
+		.attr('width', ball.Width)
+		.attr('height', ball.Height)
+		.attr('fill', ball.Color);
+
+	function GameLoop() {
+		ball.Left = parseFloat(d3.select('.ball').attr('x'));
+		ball.Top = parseFloat(d3.select('.ball').attr('y'));
+		ball.LeftLast = ball.Left;
+		ball.TopLast = ball.Top;
+		ball.Right = ball.Left + ball.Width;
+		ball.Bottom = ball.Top + ball.Height;
+		ball.LeftNext = ball.Left + ball.VX*(1/tickspersec);
+		ball.TopNext = ball.Top + ball.VY*(1/tickspersec);
+		ball.RightNext = ball.LeftNext + ball.Width;
+		ball.BottomNext = ball.TopNext + ball.Height;
+		if (shuffled === false && outershuffled === false && shuffling === false && outershuffling === false) {
+			CheckCollision();
+		}
+		paddle.Left = parseFloat(d3.select('.paddle').attr('x'));
+		paddle.LeftLast = paddle.Left;
+		paddle.LeftNext = paddle.Left;
+		paddle.Top = parseFloat(d3.select('.paddle').attr('y'));
+		paddle.TopLast = paddle.Top;
+		paddle.TopNext = paddle.Top;
+		paddle.Intersected = false;
+		paddle.Right = paddle.Left + paddle.Width;
+		paddle.Bottom = paddle.Top + paddle.Height;
+		paddle.VX = paddle.Left - paddle.LeftLast;
+		paddle.VY = paddle.Top - paddle.TopLast;
+		if (ball.RightNext >= paddle.Left) {
+			if (ball.LeftNext <= paddle.Right) {
+				if (ball.BottomNext >= paddle.Top) {
+					if (ball.TopNext <= paddle.Bottom) {
+						paddle.Intersected = true;
+					}
+				}
+			}
+		}
+		if (paddle.Intersected === true) {
+			// console.log('intersected');
+			ball.VX = ball.VX + paddle.VX;
+			ball.VY = ball.VY + paddle.VY;
+			if (ball.Left <= paddle.Left || ball.Left >= paddle.Right) {
+				ball.VX = -1*ball.VX;
+				// ball.VXNext = -1*ball.VX;
+				// ball.LeftNext = ball.Left + 1*ball.VXNext*(1/tickspersec);
+			}
+			if (ball.Top >= paddle.Bottom || ball.Top <= paddle.Top) {
+				ball.VY = -1*ball.VY;
+				// ball.VYNext = -1*ball.VY;
+				// ball.TopNext = ball.Top + 1*ball.VYNext*(1/tickspersec);
+			}
+		}
+
+		if ('Left' in keysdown) {
+			paddle.LeftNext = paddle.LeftNext + -1*500/tickspersec;
+		}
+		if ('Right' in keysdown) {
+			paddle.LeftNext = paddle.LeftNext + 500/tickspersec;
+		}
+		if ('Up' in keysdown) {
+			paddle.TopNext = paddle.TopNext + -1*500/tickspersec;
+		}
+		if ('Down' in keysdown) {
+			paddle.TopNext = paddle.TopNext + 500/tickspersec;
+		}
+
+		// if (keydown.keyIdentifier === acode || keydown.keyIdentifier === 'Left') {
+		// 	paddle.LeftNext = paddle.LeftNext + -1*250/tickspersec;
+		// }
+		// if (keydown.keyIdentifier === dcode || keydown.keyIdentifier === 'Right') {
+		// 	paddle.LeftNext = paddle.LeftNext + 250/tickspersec;
+		// }
+		// if (keydown.keyIdentifier === wcode || keydown.keyIdentifier === 'Up') {
+		// 	paddle.TopNext = paddle.TopNext + -1*250/tickspersec;
+		// }
+		// if (keydown.keyIdentifier === scode || keydown.keyIdentifier === 'Down') {
+		// 	paddle.TopNext = paddle.TopNext + 250/tickspersec;
+		// }
+		d3.select('.paddle').attr('x', paddle.LeftNext);
+		d3.select('.paddle').attr('y', paddle.TopNext);
+
+		// if (keydown.keyIdentifier === acode || keydown.keyIdentifier === 'Left'
+		// 	|| keydown.keyIdentifier === dcode || keydown.keyIdentifier === 'Right'
+		// 	|| keydown.keyIdentifier === wcode || keydown.keyIdentifier === 'Up'
+		// 	|| keydown.keyIdentifier === scode || keydown.keyIdentifier === 'Down'
+		// 	|| keydown.keyIdentifier === acode || keydown.keyIdentifier === 'Left'
+		// 	|| keydown.keyIdentifier === dcode || keydown.keyIdentifier === 'Right'
+		// 	|| keydown.keyIdentifier === scode || keydown.keyIdentifier === 'Down') {
+		// 	d3.select('.paddle')
+		// 		.transition()
+		// 		.attr('x', function() {
+		// 			if (keydown.keyIdentifier === acode || keydown.keyIdentifier === 'Left') {
+		// 				return paddle.Left - 500/tickspersec;
+		// 			}
+		// 			else if (keydown.keyIdentifier === dcode || keydown.keyIdentifier === 'Right') {
+		// 				return paddle.Left + 500/tickspersec;
+		// 			}
+		// 			else {
+		// 				return paddle.Left;
+		// 			}
+		// 		})
+		// 		.attr('y', function() {
+		// 			if (keydown.keyIdentifier === wcode || keydown.keyIdentifier === 'Up') {
+		// 				return paddle.Top - 500/tickspersec;
+		// 			}
+		// 			else if (keydown.keyIdentifier === scode || keydown.keyIdentifier === 'Down') {
+		// 				return paddle.Top + 500/tickspersec;
+		// 			}
+		// 			else {
+		// 				return paddle.Top;
+		// 			}
+		// 		})
+		// 		.duration(1000/tickspersec)
+		// 		.ease('linear');
+		// }
+		d3.select('.ball')
+			// .transition()
+			.attr('x', function() {
+				if (ball.LeftNext <= gamemargin.Left) {
+					ball.VXNext = -1*ball.VX;
+					ball.LeftNext = ball.Left + 1*ball.VXNext*(1/tickspersec);
+					shaking = true;
+					shakex = shakefactor*10*(-1*ball.VX/(1+Math.abs(ball.VX)));
+					// shakex = 0;
+					shakey = 0;
+				}
+				else if (ball.RightNext >= gamemargin.Right) {
+					ball.VXNext = -1*ball.VX;
+					ball.LeftNext = ball.Left + 1*ball.VXNext*(1/tickspersec);
+					shaking = true;
+					shakex = shakefactor*10*(-1*ball.VX/(1+Math.abs(ball.VX)));
+					// shakex = 0;
+					shakey = 0;
+				}
+				else {
+					ball.VXNext = ball.VX;
+				}
+				ball.VX = ball.VXNext;
+				return ball.LeftNext; 
+			})
+			.attr('y', function() {
+				if (ball.TopNext <= gamemargin.Top) {
+					ball.VYNext = -1*ball.VY;
+					ball.TopNext = ball.Top + 1*ball.VYNext*(1/tickspersec);
+					shaking = true;
+					shakex = 0;
+					shakey = shakefactor*10*(-1*ball.VY/(1+Math.abs(ball.VY)));
+					shakey = 0;
+				}
+				else if (ball.BottomNext >= gamemargin.Bottom) {
+					ball.VYNext = -1*ball.VY;
+					ball.TopNext = ball.Top + 1*ball.VYNext*(1/tickspersec);
+					shaking = true;
+					shakex = 0;
+					shakey = shakefactor*10*(-1*ball.VY/(1+Math.abs(ball.VY)));
+					// shakey = 0;
+				}
+				else {
+					ball.VYNext = ball.VY;
+				}
+				ball.VY = ball.VYNext;
+				return ball.TopNext; 
+			})
+			// .duration(1000/tickspersec)
+			// .ease('linear');
+			;
+		if (shaking === true) {
+			ShakeViewBox(shakex, shakey);
+			shaking = false;
+		}
+	}
+	checkingcollision = setInterval(CheckCollision, 10000);
+	clearInterval(checkingcollision);
+}
+
+function ShakeViewBox(shakex, shakey) {
+	d3.select(svg[0][0]).transition()
+			.attr('viewBox', shakex+','+shakey+','+svgmargin.Width+','+svgmargin.Height)
+			.duration(shakeoutduration)
+			.ease(shakeoutease)
+		.transition()
+			.attr('viewBox', 0+','+0+','+svgmargin.Width+','+svgmargin.Height)
+			.duration(shakeinduration)
+			.ease(shakeinease)
+		// .transition()
+		// 	.attr('viewBox', (-1*shakex)+','+(-1*shakey)+','+svgmargin.Width+','+svgmargin.Height)
+		// 	.duration(shakeduration)
+		// 	.ease(shakeease)
+		// .transition()
+		// 	.attr('viewBox', 0+','+0+','+svgmargin.Width+','+svgmargin.Height)
+		// 	.duration(shakeduration)
+		// 	.ease(shakeease)
+			;
+}
+
+function endall(transition, callback) { 
+    var n = 0; 
+    transition 
+        .each(function() { ++n; }) 
+        .each('end', function() { if (!--n) callback.apply(this, arguments); }); 
+} 
+
+var globalkey = 0;
+
+var keyleft = 0;
+var keyright = 0;
+var keytop = 0;
+var keybottom = 0;
+
+var keypressedarray = new Array();
+for (ii=0; ii<=keysarray.length; ii++) {
+	keypressedarray[ii] = false;
+}
+var hammerreturning = false;
+var lastkeypressed = 0;
+
+function CheckCollision() {
+	d3.selectAll('.keys')
+		.attr('collision', function(d, i) {
+			thiskey = d3.select(this);
+			keyleft = parseFloat(thiskey.attr('x'));
+			keyright = keyleft + d.Width;
+			keytop = parseFloat(thiskey.attr('y'));
+			keybottom = keytop + d.Height;
+			if (ball.LeftNext >= keyleft) {
+				if (ball.LeftNext <= keyright) {
+					// if (ball.TopNext >= keytop) {
+						if (ball.TopNext <= keybottom) {
+							if (keypressedarray[i] === false) {
+								keypressedarray[i] = true;
+								globalkey = this;
+								lastkeypressed = this;
+								thiskey.attr('fill', 'red');
+								HammerStrike(this);
+								d.Note.pause();
+								d.Note.currentTime = 0;
+								d.Note.play();
+								thiskey.transition()
+									.duration(500)
+									.ease('circle-out')
+									.attr('fill', d.Color)
+									.each('end', function() {
+										keypressedarray[i] = false;
+									});
+								HammerReturn(this, 150);
+							}
+						}
+					// }
+				}
+			}
+	})
+}
+
+function GameStart() {
+	gamerunning = true;
+	gametimer = setInterval(GameLoop, 1000/tickspersec);
+}
+
+function GameStop() {
+	gamerunning = false;
+	clearInterval(gametimer);
+}
+
+function Zoom() {
+    console.log('translate(' 
+        + d3.event.translate 
+        + ')scale(' + d3.event.scale + ')');
+    svg.selectAll('g').attr('transform', 'translate(' 
+        + d3.event.translate 
+        + ')scale(' + d3.event.scale + ')');
+}
+
+DrawLoadingScreen();
+
+</script>
+
+<a style='position:absolute'>
+    <text>Piarkanoid</text>
+</a>
+<a style='position:absolute; top:600px'>
+<text>(Hold Shift and move the mouse to strum piano keys)</text>
+<br>
+<text>(Press the G key to toggle on/off game mode)</text>
+<br>
+<text>(Press the arrow keys to move the paddle in game mode)</text>
+</a>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-54095915-1', 'auto');
+  ga('send', 'pageview');
+
+</script>
+
+</body>
+</html>
