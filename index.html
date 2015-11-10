@@ -6,18 +6,24 @@
 <script src="//d3js.org/d3.v3.min.js" charset="utf-8"></script>
 <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>	
 <style>
-	body {
-		font-family: 'courier';
-	}
-	.svgstyle {
-        position:absolute;
-        top:5px;
-        left:5px;
-    }
+body {
+	font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+.svgstyle {
+    position:absolute;
+    top:5px;
+    left:5px;
+}
+.disabled {
+	opacity: 0.1;
+	cursor: disabled;
+}
 </style>
 </head>
 <body>
 <script>
+
+'use strict';
 
 var apploaded = false;
 $( window ).load(
@@ -26,43 +32,6 @@ $( window ).load(
     	RemoveLoadingScreen();
     }
 )
-
-function DrawLoadingScreen() {
-    var tempsvg = d3.select('body')
-        .append('svg')
-            .classed('loading', true)
-            .style('position', 'absolute')
-            .style('top', '0px')
-            .style('left', '0px')
-            .attr('width', 1150)
-            .attr('height', 650)
-            .attr('opacity', 0.9);
-    tempsvg.append('rect')
-        // .style('pointer-events', 'all')
-        // .attr('x', -500)
-        // .attr('y', -500)
-        .attr('x', 0)
-        .attr('y', 0)
-        .attr('width', 1150)
-        .attr('height', 650)
-        .attr('fill', 'white');
-    tempsvg.append('text')
-        // .style('pointer-events', 'none')
-        .attr('y', 200)
-        .attr('font-size', 50)
-        .text('Loading...');
-}
-
-function RemoveLoadingScreen() {
-    d3.selectAll('.loading').transition()
-        .ease('exp-in')
-        .duration(1000)
-        .attr('opacity', 0)
-        .each('end', function() {
-            d3.selectAll('.loading').remove();
-            apploaded = true;
-        });
-}
 
 // Piano notes based on set from University of Iowa Electronic Music Studios
 // http://theremin.music.uiowa.edu/MISpiano.html
@@ -101,7 +70,7 @@ var notelist = [
 ];
 
 var keysarray = [];
-for (ii=0; ii<numberoctaves; ii++) {
+for (var ii=0; ii<numberoctaves; ii++) {
 	keysarray = keysarray.concat(
 		[{Label:'A',  Left:7*ii+0  , NoteIndex:10, Width:whitekeys.Width, Height:whitekeys.Height, Color:'white'}],
 		[{Label:'A#', Left:7*ii+0.5, NoteIndex:11, Width:blackkeys.Width, Height:blackkeys.Height, Color:'black'}],
@@ -124,7 +93,7 @@ for (ii=0; ii<numberextrakeys; ii++) {
 
 var currentnotes = 'uiowa';
 var currentvolume = 1;
-for (index in keysarray) {
+for (var index in keysarray) {
 	keysarray[index].Label = notelist[index];
 	keysarray[index].Note = new Audio();
 	// keysarray[index].Note.src = currentnotes+'_'+String(keysarray[index].NoteIndex)+'.mp3';
@@ -159,8 +128,6 @@ labeloffset.X = 0.5*whitekeys.Width + (-1/4)*fontsize;
 sharpoffset.X = (-1)*fontsize;
 labeloffset.Y = (1)*whitekeys.Width + (-0.5)*fontsize;
 sharpoffset.Y = (-0.5)*whitekeys.Width + (0.25)*fontsize;
-
-globalthis = 0;
 
 var pressheight = (-1/5)*whitekeys.Width;
 var presswidth = 0;
@@ -227,6 +194,8 @@ var dcode = 'U+0044';
 var gcode = 'U+0047';
 var hcode = 'U+0048';
 
+var shakex, shakey;
+
 
 d3.select('body')
 	.on('keydown', function() {
@@ -248,15 +217,7 @@ var svg = d3.select('body').append('svg')
 	.attr('class', 'mainsvg')
 	.attr('width', svgmargin.Width)
 	.attr('height', svgmargin.Height)
-	.attr('class', 'svgstyle')
-	// .call( // <-A
-	//     d3.behavior.zoom() // <-B
-	//         .scaleExtent([1, 1]) // <-C
-	//         .on('zoom', Zoom) // <-D
-	// )
-	;
-
-
+	.attr('class', 'svgstyle');
 
 //-Game Border
 if (gameenabled === true) {
@@ -397,22 +358,22 @@ svg.selectAll('g')
 // 	.attr('fill', 'black')
 // 	.attr('stroke', 'black');
 
-// //-Strings
-// svg.selectAll('g')
-// 	.append('rect')
-// 	.attr('class', 'strings')
-// 	.attr('x', function(d) {
-// 		if (d.Color === 'black') {
-// 			return gamemargin.Left + d.Left*whitekeys.Width + (3/16)*whitekeys.Width;
-// 		}
-// 		else {
-// 			return gamemargin.Left + d.Left*whitekeys.Width + (7/16)*whitekeys.Width;
-// 		}
-// 	})
-// 	.attr('y', gamemargin.Top - 4*whitekeys.Width + (3/4)*whitekeys.Width)
-// 	.attr('width', function(d) { return whitekeys.Width/8; })
-// 	.attr('height', whitekeys.Width/4)
-// 	.attr('fill', 'grey');
+//-Strings
+svg.selectAll('g')
+	.append('rect')
+	.attr('class', 'strings')
+	.attr('x', function(d) {
+		if (d.Color === 'black') {
+			return gamemargin.Left + d.Left*whitekeys.Width + (1/2)*whitekeys.Width;
+		}
+		else {
+			return gamemargin.Left + d.Left*whitekeys.Width + (1/2)*whitekeys.Width;
+		}
+	})
+	.attr('y', gamemargin.Top - 5/2*whitekeys.Width - 1/4*whitekeys.Width)
+	.attr('width', function(d) { return whitekeys.Width/8; })
+	.attr('height', 1/4*whitekeys.Width)
+	.attr('fill', 'grey');
 
 //-Hammers
 svg.selectAll('g')
@@ -482,9 +443,9 @@ svg.selectAll('mylabels')
 var buttonshufflepressed = false;
 var shuffled = false;
 var shuffling = false;
-var globaltween = 0;
 
 var buttonshuffle = svg.append('image')
+	.attr('id', 'buttonShuffle')
     .attr('xlink:href', 'iconCircle.png')
     .attr('x', gamemargin.Left + gamemargin.Width/2 + (-4)*whitekeys.Width)
     .attr('y', whitekeys.Width)
@@ -494,13 +455,14 @@ var buttonshuffle = svg.append('image')
     	d3.selectAll('.keys').attr('fill', function(d) { return d.Color; });
         if (buttonshufflepressed===false && shuffling===false && outershuffled===false && outershuffling===false) {
         	buttonshufflepressed = true;
+        	d3.select('#buttonOuterShuffle').classed('disabled', true);
         	if (shuffled === false) {
         		shuffling = true;
         		shuffled = true;
 	            svg.selectAll('.shuffleable')
 	            	.transition()
 			        	.attr('x', function(d) {
-			        		labeloffsetx = 0;
+			        		var labeloffsetx = 0;
 			        		if (this.nodeName === 'text') {
 			        			if (d.Color === 'black') {
 			        				labeloffsetx += (labeloffset.X + sharpoffset.X);
@@ -520,7 +482,7 @@ var buttonshuffle = svg.append('image')
 			        	})
 		        	.transition()
 			        	.attr('x', function(d) {
-			        		labeloffsetx = 0;
+			        		var labeloffsetx = 0;
 			        		if (this.nodeName === 'text') {
 			        			if (d.Color === 'black') {
 			        				labeloffsetx += (labeloffset.X + sharpoffset.X);
@@ -532,8 +494,7 @@ var buttonshuffle = svg.append('image')
 			        		return rotations.originx - whitekeys.Width/2 + labeloffsetx;
 			        	})
 			        	.attr('y', function(d) {
-			        		globalthis = this;
-			        		labeloffsety = 0;
+			        		var labeloffsety = 0;
 			        		if (this.nodeName === 'text') {
 			        			if (d.Color === 'black') {
 			        				labeloffsety += (labeloffset.Y + sharpoffset.Y);
@@ -581,7 +542,7 @@ var buttonshuffle = svg.append('image')
 			        	})
 		        	.transition()
 			        	.attr('x', function(d) {
-			        		labeloffsetx = 0;
+			        		var labeloffsetx = 0;
 			        		if (this.nodeName === 'text') {
 			        			if (d.Color === 'black') {
 			        				labeloffsetx += (labeloffset.X + sharpoffset.X);
@@ -593,7 +554,7 @@ var buttonshuffle = svg.append('image')
 			        		return gamemargin.Left + gamemargin.Width/2 - whitekeys.Width/2 + labeloffsetx;
 			        	})
 			        	.attr('y', function(d) {
-			        		labeloffsety = 0;
+			        		var labeloffsety = 0;
 			        		if (this.nodeName === 'text') {
 			        			if (d.Color === 'black') {
 			        				labeloffsety += (labeloffset.Y + sharpoffset.Y);
@@ -613,7 +574,7 @@ var buttonshuffle = svg.append('image')
 			        	})
 			        .transition()
 			        	.attr('x', function(d) {
-			        		labeloffsetx = 0;
+			        		var labeloffsetx = 0;
 			        		if (this.nodeName === 'text') {
 			        			if (d.Color === 'black') {
 			        				labeloffsetx += (labeloffset.X + sharpoffset.X);
@@ -625,7 +586,7 @@ var buttonshuffle = svg.append('image')
 			        		return gamemargin.Left + d.Left*whitekeys.Width + labeloffsetx;
 			        	})
 			        	.attr('y', function(d) {
-			        		labeloffsety = 0;
+			        		var labeloffsety = 0;
 			        		if (this.nodeName === 'text') {
 			        			if (d.Color === 'black') {
 			        				labeloffsety += (labeloffset.Y + sharpoffset.Y);
@@ -643,6 +604,7 @@ var buttonshuffle = svg.append('image')
 			        			ShakeViewBox(shuffleapartshakex, shuffleapartshakey);
 			        		}
 			        		shuffling = false;
+			        		d3.select('#buttonOuterShuffle').classed('disabled', false);
 			        	});
 		    }
             ElementAnimationScale(this, 40, scalefactor);
@@ -720,6 +682,7 @@ var outershuffled = false;
 var outershuffling = false;
 
 var buttonoutershuffle = svg.append('image')
+	.attr('id', 'buttonOuterShuffle')
     .attr('xlink:href', 'iconSquare.png')
     .attr('x', gamemargin.Left + gamemargin.Width/2 + (2)*whitekeys.Width)
     .attr('y', whitekeys.Width)
@@ -729,13 +692,14 @@ var buttonoutershuffle = svg.append('image')
     	d3.selectAll('.keys').attr('fill', function(d) { return d.Color; });
         if (buttonoutershufflepressed===false && shuffled===false && shuffling===false && outershuffling===false) {
         	buttonoutershufflepressed = true;
+        	d3.select('#buttonShuffle').classed('disabled', true);
         	if (outershuffled === false) {
 	            outershuffled = true;
 	            outershuffling = true;
 	            svg.selectAll('.shuffleable')
 	            	.transition()
 			        	.attr('x', function(d) {
-			        		labeloffsetx = 0;
+			        		var labeloffsetx = 0;
 			        		if (this.nodeName === 'text') {
 			        			if (d.Color === 'black') {
 			        				labeloffsetx += (labeloffset.X + sharpoffset.X);
@@ -783,7 +747,7 @@ var buttonoutershuffle = svg.append('image')
 			        	})
 			        .transition()
 			        	.attr('x', function(d) {
-			        		labeloffsetx = 0;
+			        		var labeloffsetx = 0;
 			        		if (this.nodeName === 'text') {
 			        			if (d.Color === 'black') {
 			        				labeloffsetx += (labeloffset.X + sharpoffset.X);
@@ -795,7 +759,7 @@ var buttonoutershuffle = svg.append('image')
 			        		return gamemargin.Left + d.Left*whitekeys.Width + labeloffsetx;
 			        	})
 			        	.attr('y', function(d) {
-			        		labeloffsety = 0;
+			        		var labeloffsety = 0;
 			        		if (this.nodeName === 'text') {
 			        			if (d.Color === 'black') {
 			        				labeloffsety += (labeloffset.Y + sharpoffset.Y);
@@ -813,6 +777,7 @@ var buttonoutershuffle = svg.append('image')
 			        			ShakeViewBox(shuffleapartshakex, shuffleapartshakey);
 			        		}
 			        		outershuffling = false;
+			        		d3.select('#buttonShuffle').classed('disabled', false);
 			        	});
 		    }
             ElementAnimationScale(this, 40, scalefactor);
@@ -839,15 +804,294 @@ var buttonoutershuffle = svg.append('image')
         }
     });
 
+// Game Border
+if (gameenabled === true) {
+	var gametimer = '';
+	if (gamerunning === true) {
+		GameStart();
+	}
+	var ball = {};
+	ball.Color = 'red';
+	ball.Width  = 10;
+	ball.Height = 10;
+	ball.LeftInit = gamemargin.Left + gamemargin.Width/2 - ball.Width/2;
+	ball.TopInit = gamemargin.Top + gamemargin.Height/2 - ball.Height/2;
+	var randomangle = 0.25*Math.PI + Math.random()*0.5*Math.PI;
+	ball.VXInit = 400*Math.cos(randomangle);
+	ball.VYInit = 400*Math.sin(randomangle);
+	// var ball.VXInit = 100;
+	// var ball.VYInit = 1000;
+	ball.VX = ball.VXInit;
+	ball.VY = ball.VYInit;
+	var paddle = {};
+	paddle.Color = 'black';
+	paddle.Width = 12*whitekeys.Width;
+	paddle.Height = 2*whitekeys.Width;
+	paddle.LeftInit = gamemargin.Left + gamemargin.Width/2 - paddle.Width/2;
+	paddle.TopInit = gamemargin.Bottom - paddle.Height;
+	paddle.Intersected = false;
+	paddle.VXInit = 0;
+	paddle.VX = paddle.VXInit;
+	paddle.VYInit = 0;
+	paddle.VY = paddle.VYInit;
+	// paddle.Moving = false;	
+
+	//-The Paddle
+	svg.append('rect')
+		.datum(paddle)
+		.attr('class', 'paddle')
+		.attr('x', paddle.LeftInit)
+		.attr('y', paddle.TopInit)
+		.attr('width', paddle.Width)
+		.attr('height', paddle.Height)
+		.attr('fill', paddle.Color);
+
+	//-The Ball
+	svg.append('rect')
+		.datum(ball)
+		.attr('class', 'ball')
+		.attr('x', ball.LeftInit)
+		.attr('y', ball.TopInit)
+		.attr('width', ball.Width)
+		.attr('height', ball.Height)
+		.attr('fill', ball.Color);
+
+	var checkingcollision = setInterval(CheckCollision, 10000);
+	clearInterval(checkingcollision);
+} 
+
+var keyleft = 0;
+var keyright = 0;
+var keytop = 0;
+var keybottom = 0;
+
+var keypressedarray = new Array();
+for (ii=0; ii<=keysarray.length; ii++) {
+	keypressedarray[ii] = false;
+}
+var hammerreturning = false;
+var lastkeypressed = 0;
+
+DrawLoadingScreen();
+
+// ---------------------
+// Function Declarations
+// ---------------------
+
+function GameLoop() {
+	ball.Left = parseFloat(d3.select('.ball').attr('x'));
+	ball.Top = parseFloat(d3.select('.ball').attr('y'));
+	ball.LeftLast = ball.Left;
+	ball.TopLast = ball.Top;
+	ball.Right = ball.Left + ball.Width;
+	ball.Bottom = ball.Top + ball.Height;
+	ball.LeftNext = ball.Left + ball.VX*(1/tickspersec);
+	ball.TopNext = ball.Top + ball.VY*(1/tickspersec);
+	ball.RightNext = ball.LeftNext + ball.Width;
+	ball.BottomNext = ball.TopNext + ball.Height;
+	if (shuffled === false && outershuffled === false && shuffling === false && outershuffling === false) {
+		CheckCollision();
+	}
+	paddle.Left = parseFloat(d3.select('.paddle').attr('x'));
+	paddle.LeftLast = paddle.Left;
+	paddle.LeftNext = paddle.Left;
+	paddle.Top = parseFloat(d3.select('.paddle').attr('y'));
+	paddle.TopLast = paddle.Top;
+	paddle.TopNext = paddle.Top;
+	paddle.Intersected = false;
+	paddle.Right = paddle.Left + paddle.Width;
+	paddle.Bottom = paddle.Top + paddle.Height;
+	paddle.VX = paddle.Left - paddle.LeftLast;
+	paddle.VY = paddle.Top - paddle.TopLast;
+	if (ball.RightNext >= paddle.Left) {
+		if (ball.LeftNext <= paddle.Right) {
+			if (ball.BottomNext >= paddle.Top) {
+				if (ball.TopNext <= paddle.Bottom) {
+					paddle.Intersected = true;
+				}
+			}
+		}
+	}
+	if (paddle.Intersected === true) {
+		// console.log('intersected');
+		ball.VX = ball.VX + paddle.VX;
+		ball.VY = ball.VY + paddle.VY;
+		if (ball.Left <= paddle.Left || ball.Left >= paddle.Right) {
+			ball.VX = -1*ball.VX;
+			// ball.VXNext = -1*ball.VX;
+			// ball.LeftNext = ball.Left + 1*ball.VXNext*(1/tickspersec);
+		}
+		if (ball.Top >= paddle.Bottom || ball.Top <= paddle.Top) {
+			ball.VY = -1*ball.VY;
+			// ball.VYNext = -1*ball.VY;
+			// ball.TopNext = ball.Top + 1*ball.VYNext*(1/tickspersec);
+		}
+	}
+
+	if ('Left' in keysdown) {
+		paddle.LeftNext = paddle.LeftNext + -1*500/tickspersec;
+	}
+	if ('Right' in keysdown) {
+		paddle.LeftNext = paddle.LeftNext + 500/tickspersec;
+	}
+	if ('Up' in keysdown) {
+		paddle.TopNext = paddle.TopNext + -1*500/tickspersec;
+	}
+	if ('Down' in keysdown) {
+		paddle.TopNext = paddle.TopNext + 500/tickspersec;
+	}
+
+	// if (keydown.keyIdentifier === acode || keydown.keyIdentifier === 'Left') {
+	// 	paddle.LeftNext = paddle.LeftNext + -1*250/tickspersec;
+	// }
+	// if (keydown.keyIdentifier === dcode || keydown.keyIdentifier === 'Right') {
+	// 	paddle.LeftNext = paddle.LeftNext + 250/tickspersec;
+	// }
+	// if (keydown.keyIdentifier === wcode || keydown.keyIdentifier === 'Up') {
+	// 	paddle.TopNext = paddle.TopNext + -1*250/tickspersec;
+	// }
+	// if (keydown.keyIdentifier === scode || keydown.keyIdentifier === 'Down') {
+	// 	paddle.TopNext = paddle.TopNext + 250/tickspersec;
+	// }
+	d3.select('.paddle').attr('x', paddle.LeftNext);
+	d3.select('.paddle').attr('y', paddle.TopNext);
+
+	// if (keydown.keyIdentifier === acode || keydown.keyIdentifier === 'Left'
+	// 	|| keydown.keyIdentifier === dcode || keydown.keyIdentifier === 'Right'
+	// 	|| keydown.keyIdentifier === wcode || keydown.keyIdentifier === 'Up'
+	// 	|| keydown.keyIdentifier === scode || keydown.keyIdentifier === 'Down'
+	// 	|| keydown.keyIdentifier === acode || keydown.keyIdentifier === 'Left'
+	// 	|| keydown.keyIdentifier === dcode || keydown.keyIdentifier === 'Right'
+	// 	|| keydown.keyIdentifier === scode || keydown.keyIdentifier === 'Down') {
+	// 	d3.select('.paddle')
+	// 		.transition()
+	// 		.attr('x', function() {
+	// 			if (keydown.keyIdentifier === acode || keydown.keyIdentifier === 'Left') {
+	// 				return paddle.Left - 500/tickspersec;
+	// 			}
+	// 			else if (keydown.keyIdentifier === dcode || keydown.keyIdentifier === 'Right') {
+	// 				return paddle.Left + 500/tickspersec;
+	// 			}
+	// 			else {
+	// 				return paddle.Left;
+	// 			}
+	// 		})
+	// 		.attr('y', function() {
+	// 			if (keydown.keyIdentifier === wcode || keydown.keyIdentifier === 'Up') {
+	// 				return paddle.Top - 500/tickspersec;
+	// 			}
+	// 			else if (keydown.keyIdentifier === scode || keydown.keyIdentifier === 'Down') {
+	// 				return paddle.Top + 500/tickspersec;
+	// 			}
+	// 			else {
+	// 				return paddle.Top;
+	// 			}
+	// 		})
+	// 		.duration(1000/tickspersec)
+	// 		.ease('linear');
+	// }
+	d3.select('.ball')
+		// .transition()
+		.attr('x', function() {
+			if (ball.LeftNext <= gamemargin.Left) {
+				ball.VXNext = -1*ball.VX;
+				ball.LeftNext = ball.Left + 1*ball.VXNext*(1/tickspersec);
+				shaking = true;
+				shakex = shakefactor*10*(-1*ball.VX/(1+Math.abs(ball.VX)));
+				// shakex = 0;
+				shakey = 0;
+			}
+			else if (ball.RightNext >= gamemargin.Right) {
+				ball.VXNext = -1*ball.VX;
+				ball.LeftNext = ball.Left + 1*ball.VXNext*(1/tickspersec);
+				shaking = true;
+				shakex = shakefactor*10*(-1*ball.VX/(1+Math.abs(ball.VX)));
+				// shakex = 0;
+				shakey = 0;
+			}
+			else {
+				ball.VXNext = ball.VX;
+			}
+			ball.VX = ball.VXNext;
+			return ball.LeftNext; 
+		})
+		.attr('y', function() {
+			if (ball.TopNext <= gamemargin.Top) {
+				ball.VYNext = -1*ball.VY;
+				ball.TopNext = ball.Top + 1*ball.VYNext*(1/tickspersec);
+				shaking = true;
+				shakex = 0;
+				shakey = shakefactor*10*(-1*ball.VY/(1+Math.abs(ball.VY)));
+				shakey = 0;
+			}
+			else if (ball.BottomNext >= gamemargin.Bottom) {
+				ball.VYNext = -1*ball.VY;
+				ball.TopNext = ball.Top + 1*ball.VYNext*(1/tickspersec);
+				shaking = true;
+				shakex = 0;
+				shakey = shakefactor*10*(-1*ball.VY/(1+Math.abs(ball.VY)));
+				// shakey = 0;
+			}
+			else {
+				ball.VYNext = ball.VY;
+			}
+			ball.VY = ball.VYNext;
+			return ball.TopNext; 
+		})
+		// .duration(1000/tickspersec)
+		// .ease('linear');
+		;
+	if (shaking === true) {
+		ShakeViewBox(shakex, shakey);
+		shaking = false;
+	}
+}
+
+function DrawLoadingScreen() {
+    var tempsvg = d3.select('body')
+        .append('svg')
+            .classed('loading', true)
+            .style('position', 'absolute')
+            .style('top', '0px')
+            .style('left', '0px')
+            .attr('width', 1150)
+            .attr('height', 650)
+            .attr('opacity', 0.9);
+    tempsvg.append('rect')
+        // .style('pointer-events', 'all')
+        // .attr('x', -500)
+        // .attr('y', -500)
+        .attr('x', 0)
+        .attr('y', 0)
+        .attr('width', 1150)
+        .attr('height', 650)
+        .attr('fill', 'white');
+    tempsvg.append('text')
+        // .style('pointer-events', 'none')
+        .attr('y', 200)
+        .attr('font-size', 50)
+        .text('Loading...');
+}
+
+function RemoveLoadingScreen() {
+    d3.selectAll('.loading').transition()
+        .ease('exp-in')
+        .duration(1000)
+        .attr('opacity', 0)
+        .each('end', function() {
+            d3.selectAll('.loading').remove();
+            apploaded = true;
+        });
+}
 
 function ElementAnimationScale(tempthis, thiswidth, tscale) {
-    thisx = parseFloat(tempthis.getAttribute('x'));
-    thisy = parseFloat(tempthis.getAttribute('y'));
+    var thisx = parseFloat(tempthis.getAttribute('x'));
+    var thisy = parseFloat(tempthis.getAttribute('y'));
     return d3.select(tempthis).transition()
         .attr('transform', function() {
-            step1 = 'translate(' + String(thisx+thiswidth/2) + ',' + String(thisy+thiswidth/2) + ')';
-            step2 = 'scale(' + String(tscale) + ')';
-            step3 = 'translate(' + String(-thisx-thiswidth/2) + ',' + String(-thisy-thiswidth/2) + ')';
+            var step1 = 'translate(' + String(thisx+thiswidth/2) + ',' + String(thisy+thiswidth/2) + ')';
+            var step2 = 'scale(' + String(tscale) + ')';
+            var step3 = 'translate(' + String(-thisx-thiswidth/2) + ',' + String(-thisy-thiswidth/2) + ')';
             return step1 + ' ' + step2 + ' ' + step3;})
         .duration(scaleduration)
         .ease(scaleease);
@@ -911,231 +1155,6 @@ function StringStrike(passedthis) {
 			.ease('circle-in');
 }
 
-// Game Border
-if (gameenabled === true)
-{
-	var gametimer = '';
-	if (gamerunning === true) {
-		GameStart();
-	}
-	var ball = {};
-	ball.Color = 'red';
-	ball.Width  = 10;
-	ball.Height = 10;
-	ball.LeftInit = gamemargin.Left + gamemargin.Width/2 - ball.Width/2;
-	ball.TopInit = gamemargin.Top + gamemargin.Height/2 - ball.Height/2;
-	randomangle = 0.25*Math.PI + Math.random()*0.5*Math.PI;
-	ball.VXInit = 400*Math.cos(randomangle);
-	ball.VYInit = 400*Math.sin(randomangle);
-	// var ball.VXInit = 100;
-	// var ball.VYInit = 1000;
-	ball.VX = ball.VXInit;
-	ball.VY = ball.VYInit;
-	var paddle = {};
-	paddle.Color = 'black';
-	paddle.Width = 12*whitekeys.Width;
-	paddle.Height = 2*whitekeys.Width;
-	paddle.LeftInit = gamemargin.Left + gamemargin.Width/2 - paddle.Width/2;
-	paddle.TopInit = gamemargin.Bottom - paddle.Height;
-	paddle.Intersected = false;
-	paddle.VXInit = 0;
-	paddle.VX = paddle.VXInit;
-	paddle.VYInit = 0;
-	paddle.VY = paddle.VYInit;
-	// paddle.Moving = false;	
-
-	//-The Paddle
-	svg.append('rect')
-		.datum(paddle)
-		.attr('class', 'paddle')
-		.attr('x', paddle.LeftInit)
-		.attr('y', paddle.TopInit)
-		.attr('width', paddle.Width)
-		.attr('height', paddle.Height)
-		.attr('fill', paddle.Color);
-
-	//-The Ball
-	svg.append('rect')
-		.datum(ball)
-		.attr('class', 'ball')
-		.attr('x', ball.LeftInit)
-		.attr('y', ball.TopInit)
-		.attr('width', ball.Width)
-		.attr('height', ball.Height)
-		.attr('fill', ball.Color);
-
-	function GameLoop() {
-		ball.Left = parseFloat(d3.select('.ball').attr('x'));
-		ball.Top = parseFloat(d3.select('.ball').attr('y'));
-		ball.LeftLast = ball.Left;
-		ball.TopLast = ball.Top;
-		ball.Right = ball.Left + ball.Width;
-		ball.Bottom = ball.Top + ball.Height;
-		ball.LeftNext = ball.Left + ball.VX*(1/tickspersec);
-		ball.TopNext = ball.Top + ball.VY*(1/tickspersec);
-		ball.RightNext = ball.LeftNext + ball.Width;
-		ball.BottomNext = ball.TopNext + ball.Height;
-		if (shuffled === false && outershuffled === false && shuffling === false && outershuffling === false) {
-			CheckCollision();
-		}
-		paddle.Left = parseFloat(d3.select('.paddle').attr('x'));
-		paddle.LeftLast = paddle.Left;
-		paddle.LeftNext = paddle.Left;
-		paddle.Top = parseFloat(d3.select('.paddle').attr('y'));
-		paddle.TopLast = paddle.Top;
-		paddle.TopNext = paddle.Top;
-		paddle.Intersected = false;
-		paddle.Right = paddle.Left + paddle.Width;
-		paddle.Bottom = paddle.Top + paddle.Height;
-		paddle.VX = paddle.Left - paddle.LeftLast;
-		paddle.VY = paddle.Top - paddle.TopLast;
-		if (ball.RightNext >= paddle.Left) {
-			if (ball.LeftNext <= paddle.Right) {
-				if (ball.BottomNext >= paddle.Top) {
-					if (ball.TopNext <= paddle.Bottom) {
-						paddle.Intersected = true;
-					}
-				}
-			}
-		}
-		if (paddle.Intersected === true) {
-			// console.log('intersected');
-			ball.VX = ball.VX + paddle.VX;
-			ball.VY = ball.VY + paddle.VY;
-			if (ball.Left <= paddle.Left || ball.Left >= paddle.Right) {
-				ball.VX = -1*ball.VX;
-				// ball.VXNext = -1*ball.VX;
-				// ball.LeftNext = ball.Left + 1*ball.VXNext*(1/tickspersec);
-			}
-			if (ball.Top >= paddle.Bottom || ball.Top <= paddle.Top) {
-				ball.VY = -1*ball.VY;
-				// ball.VYNext = -1*ball.VY;
-				// ball.TopNext = ball.Top + 1*ball.VYNext*(1/tickspersec);
-			}
-		}
-
-		if ('Left' in keysdown) {
-			paddle.LeftNext = paddle.LeftNext + -1*500/tickspersec;
-		}
-		if ('Right' in keysdown) {
-			paddle.LeftNext = paddle.LeftNext + 500/tickspersec;
-		}
-		if ('Up' in keysdown) {
-			paddle.TopNext = paddle.TopNext + -1*500/tickspersec;
-		}
-		if ('Down' in keysdown) {
-			paddle.TopNext = paddle.TopNext + 500/tickspersec;
-		}
-
-		// if (keydown.keyIdentifier === acode || keydown.keyIdentifier === 'Left') {
-		// 	paddle.LeftNext = paddle.LeftNext + -1*250/tickspersec;
-		// }
-		// if (keydown.keyIdentifier === dcode || keydown.keyIdentifier === 'Right') {
-		// 	paddle.LeftNext = paddle.LeftNext + 250/tickspersec;
-		// }
-		// if (keydown.keyIdentifier === wcode || keydown.keyIdentifier === 'Up') {
-		// 	paddle.TopNext = paddle.TopNext + -1*250/tickspersec;
-		// }
-		// if (keydown.keyIdentifier === scode || keydown.keyIdentifier === 'Down') {
-		// 	paddle.TopNext = paddle.TopNext + 250/tickspersec;
-		// }
-		d3.select('.paddle').attr('x', paddle.LeftNext);
-		d3.select('.paddle').attr('y', paddle.TopNext);
-
-		// if (keydown.keyIdentifier === acode || keydown.keyIdentifier === 'Left'
-		// 	|| keydown.keyIdentifier === dcode || keydown.keyIdentifier === 'Right'
-		// 	|| keydown.keyIdentifier === wcode || keydown.keyIdentifier === 'Up'
-		// 	|| keydown.keyIdentifier === scode || keydown.keyIdentifier === 'Down'
-		// 	|| keydown.keyIdentifier === acode || keydown.keyIdentifier === 'Left'
-		// 	|| keydown.keyIdentifier === dcode || keydown.keyIdentifier === 'Right'
-		// 	|| keydown.keyIdentifier === scode || keydown.keyIdentifier === 'Down') {
-		// 	d3.select('.paddle')
-		// 		.transition()
-		// 		.attr('x', function() {
-		// 			if (keydown.keyIdentifier === acode || keydown.keyIdentifier === 'Left') {
-		// 				return paddle.Left - 500/tickspersec;
-		// 			}
-		// 			else if (keydown.keyIdentifier === dcode || keydown.keyIdentifier === 'Right') {
-		// 				return paddle.Left + 500/tickspersec;
-		// 			}
-		// 			else {
-		// 				return paddle.Left;
-		// 			}
-		// 		})
-		// 		.attr('y', function() {
-		// 			if (keydown.keyIdentifier === wcode || keydown.keyIdentifier === 'Up') {
-		// 				return paddle.Top - 500/tickspersec;
-		// 			}
-		// 			else if (keydown.keyIdentifier === scode || keydown.keyIdentifier === 'Down') {
-		// 				return paddle.Top + 500/tickspersec;
-		// 			}
-		// 			else {
-		// 				return paddle.Top;
-		// 			}
-		// 		})
-		// 		.duration(1000/tickspersec)
-		// 		.ease('linear');
-		// }
-		d3.select('.ball')
-			// .transition()
-			.attr('x', function() {
-				if (ball.LeftNext <= gamemargin.Left) {
-					ball.VXNext = -1*ball.VX;
-					ball.LeftNext = ball.Left + 1*ball.VXNext*(1/tickspersec);
-					shaking = true;
-					shakex = shakefactor*10*(-1*ball.VX/(1+Math.abs(ball.VX)));
-					// shakex = 0;
-					shakey = 0;
-				}
-				else if (ball.RightNext >= gamemargin.Right) {
-					ball.VXNext = -1*ball.VX;
-					ball.LeftNext = ball.Left + 1*ball.VXNext*(1/tickspersec);
-					shaking = true;
-					shakex = shakefactor*10*(-1*ball.VX/(1+Math.abs(ball.VX)));
-					// shakex = 0;
-					shakey = 0;
-				}
-				else {
-					ball.VXNext = ball.VX;
-				}
-				ball.VX = ball.VXNext;
-				return ball.LeftNext; 
-			})
-			.attr('y', function() {
-				if (ball.TopNext <= gamemargin.Top) {
-					ball.VYNext = -1*ball.VY;
-					ball.TopNext = ball.Top + 1*ball.VYNext*(1/tickspersec);
-					shaking = true;
-					shakex = 0;
-					shakey = shakefactor*10*(-1*ball.VY/(1+Math.abs(ball.VY)));
-					shakey = 0;
-				}
-				else if (ball.BottomNext >= gamemargin.Bottom) {
-					ball.VYNext = -1*ball.VY;
-					ball.TopNext = ball.Top + 1*ball.VYNext*(1/tickspersec);
-					shaking = true;
-					shakex = 0;
-					shakey = shakefactor*10*(-1*ball.VY/(1+Math.abs(ball.VY)));
-					// shakey = 0;
-				}
-				else {
-					ball.VYNext = ball.VY;
-				}
-				ball.VY = ball.VYNext;
-				return ball.TopNext; 
-			})
-			// .duration(1000/tickspersec)
-			// .ease('linear');
-			;
-		if (shaking === true) {
-			ShakeViewBox(shakex, shakey);
-			shaking = false;
-		}
-	}
-	checkingcollision = setInterval(CheckCollision, 10000);
-	clearInterval(checkingcollision);
-}
-
 function ShakeViewBox(shakex, shakey) {
 	d3.select(svg[0][0]).transition()
 			.attr('viewBox', shakex+','+shakey+','+svgmargin.Width+','+svgmargin.Height)
@@ -1161,26 +1180,12 @@ function endall(transition, callback) {
     transition 
         .each(function() { ++n; }) 
         .each('end', function() { if (!--n) callback.apply(this, arguments); }); 
-} 
-
-var globalkey = 0;
-
-var keyleft = 0;
-var keyright = 0;
-var keytop = 0;
-var keybottom = 0;
-
-var keypressedarray = new Array();
-for (ii=0; ii<=keysarray.length; ii++) {
-	keypressedarray[ii] = false;
 }
-var hammerreturning = false;
-var lastkeypressed = 0;
 
 function CheckCollision() {
 	d3.selectAll('.keys')
 		.attr('collision', function(d, i) {
-			thiskey = d3.select(this);
+			var thiskey = d3.select(this);
 			keyleft = parseFloat(thiskey.attr('x'));
 			keyright = keyleft + d.Width;
 			keytop = parseFloat(thiskey.attr('y'));
@@ -1191,7 +1196,6 @@ function CheckCollision() {
 						if (ball.TopNext <= keybottom) {
 							if (keypressedarray[i] === false) {
 								keypressedarray[i] = true;
-								globalkey = this;
 								lastkeypressed = this;
 								thiskey.attr('fill', 'red');
 								HammerStrike(this);
@@ -1233,7 +1237,6 @@ function Zoom() {
         + ')scale(' + d3.event.scale + ')');
 }
 
-DrawLoadingScreen();
 
 </script>
 
