@@ -32,10 +32,10 @@ $( window ).load(
     	RemoveLoadingScreen();
     }
 )
+var paddleAnimation = 'blit'; // 'transition'
 
 // Piano notes based on set from University of Iowa Electronic Music Studios
 // http://theremin.music.uiowa.edu/MISpiano.html
-
 var numberoctaves = 8;
 var gameenabled = true;
 var gamerunning = false;
@@ -928,68 +928,70 @@ function GameLoop() {
 		}
 	}
 
-	if ('Left' in keysdown) {
-		paddle.LeftNext = paddle.LeftNext + -1*500/tickspersec;
+	if (paddleAnimation === 'blit') {
+		if ('Left' in keysdown) {
+			if (paddle.LeftNext <= gamemargin.Left) {
+				paddle.LeftNext = gamemargin.Left;
+			}
+			else {
+				paddle.LeftNext = paddle.LeftNext + -1*500/tickspersec;
+			}
+		}
+		if ('Right' in keysdown) {
+			if (paddle.LeftNext >= gamemargin.Right - paddle.Width) {
+				paddle.LeftNext = gamemargin.Right - paddle.Width;
+			}
+			else {
+				paddle.LeftNext = paddle.LeftNext + 500/tickspersec;
+			}
+		}
+		if ('Up' in keysdown) {
+			if (paddle.TopNext <= gamemargin.Top) {
+				paddle.TopNext = gamemargin.Top;
+			}
+			else {
+				paddle.TopNext = paddle.TopNext + -1*500/tickspersec;
+			}
+		}
+		if ('Down' in keysdown) {
+			if (paddle.TopNext >= gamemargin.Bottom - paddle.Height) {
+				paddle.TopNext = gamemargin.Bottom - paddle.Height;
+			}
+			else {
+				paddle.TopNext = paddle.TopNext + 500/tickspersec;
+			}
+		}
+		d3.select('.paddle').attr('x', paddle.LeftNext);
+		d3.select('.paddle').attr('y', paddle.TopNext);
 	}
-	if ('Right' in keysdown) {
-		paddle.LeftNext = paddle.LeftNext + 500/tickspersec;
+	else if (paddleAnimation === 'transition') {
+		d3.select('.paddle')
+			.transition()
+			.attr('x', function() {
+				if ('Left' in keysdown) {
+					return paddle.Left - 2000/tickspersec;
+				}
+				else if ('Right' in keysdown) {
+					return paddle.Left + 2000/tickspersec;
+				}
+				else {
+					return paddle.Left;
+				}
+			})
+			.attr('y', function() {
+				if ('Up' in keysdown) {
+					return paddle.Top - 2000/tickspersec;
+				}
+				else if ('Down' in keysdown) {
+					return paddle.Top + 2000/tickspersec;
+				}
+				else {
+					return paddle.Top;
+				}
+			})
+			.duration(1000/tickspersec)
+			.ease('linear');
 	}
-	if ('Up' in keysdown) {
-		paddle.TopNext = paddle.TopNext + -1*500/tickspersec;
-	}
-	if ('Down' in keysdown) {
-		paddle.TopNext = paddle.TopNext + 500/tickspersec;
-	}
-
-	// if (keydown.keyIdentifier === acode || keydown.keyIdentifier === 'Left') {
-	// 	paddle.LeftNext = paddle.LeftNext + -1*250/tickspersec;
-	// }
-	// if (keydown.keyIdentifier === dcode || keydown.keyIdentifier === 'Right') {
-	// 	paddle.LeftNext = paddle.LeftNext + 250/tickspersec;
-	// }
-	// if (keydown.keyIdentifier === wcode || keydown.keyIdentifier === 'Up') {
-	// 	paddle.TopNext = paddle.TopNext + -1*250/tickspersec;
-	// }
-	// if (keydown.keyIdentifier === scode || keydown.keyIdentifier === 'Down') {
-	// 	paddle.TopNext = paddle.TopNext + 250/tickspersec;
-	// }
-	d3.select('.paddle').attr('x', paddle.LeftNext);
-	d3.select('.paddle').attr('y', paddle.TopNext);
-
-	// if (keydown.keyIdentifier === acode || keydown.keyIdentifier === 'Left'
-	// 	|| keydown.keyIdentifier === dcode || keydown.keyIdentifier === 'Right'
-	// 	|| keydown.keyIdentifier === wcode || keydown.keyIdentifier === 'Up'
-	// 	|| keydown.keyIdentifier === scode || keydown.keyIdentifier === 'Down'
-	// 	|| keydown.keyIdentifier === acode || keydown.keyIdentifier === 'Left'
-	// 	|| keydown.keyIdentifier === dcode || keydown.keyIdentifier === 'Right'
-	// 	|| keydown.keyIdentifier === scode || keydown.keyIdentifier === 'Down') {
-	// 	d3.select('.paddle')
-	// 		.transition()
-	// 		.attr('x', function() {
-	// 			if (keydown.keyIdentifier === acode || keydown.keyIdentifier === 'Left') {
-	// 				return paddle.Left - 500/tickspersec;
-	// 			}
-	// 			else if (keydown.keyIdentifier === dcode || keydown.keyIdentifier === 'Right') {
-	// 				return paddle.Left + 500/tickspersec;
-	// 			}
-	// 			else {
-	// 				return paddle.Left;
-	// 			}
-	// 		})
-	// 		.attr('y', function() {
-	// 			if (keydown.keyIdentifier === wcode || keydown.keyIdentifier === 'Up') {
-	// 				return paddle.Top - 500/tickspersec;
-	// 			}
-	// 			else if (keydown.keyIdentifier === scode || keydown.keyIdentifier === 'Down') {
-	// 				return paddle.Top + 500/tickspersec;
-	// 			}
-	// 			else {
-	// 				return paddle.Top;
-	// 			}
-	// 		})
-	// 		.duration(1000/tickspersec)
-	// 		.ease('linear');
-	// }
 	d3.select('.ball')
 		// .transition()
 		.attr('x', function() {
@@ -1228,17 +1230,8 @@ function GameStop() {
 	clearInterval(gametimer);
 }
 
-function Zoom() {
-    console.log('translate(' 
-        + d3.event.translate 
-        + ')scale(' + d3.event.scale + ')');
-    svg.selectAll('g').attr('transform', 'translate(' 
-        + d3.event.translate 
-        + ')scale(' + d3.event.scale + ')');
-}
-
-
 </script>
+
 
 <a style='position:absolute; top:600px'>
 <text>(Hold Shift and move the mouse to strum piano keys)</text>
@@ -1247,17 +1240,6 @@ function Zoom() {
 <br>
 <text>(Press the arrow keys to move the paddle in game mode)</text>
 </a>
-
-<script>
-  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
-
-  ga('create', 'UA-54095915-1', 'auto');
-  ga('send', 'pageview');
-
-</script>
 
 </body>
 </html>
